@@ -9,55 +9,57 @@ router.get('/', (req,res)=>{//Get all posts
             res.status(200).json({post})
         })
         .catch(err => {
-            res.status(500).json({success: false, err})
+            res.status(500).json({error: "The posts information could not be retrieved."})
         })
 });
 
 router.get('/:id', (req,res)=>{//Get posts by id
     const {id} = req.params
+
     Posts.findById(id)
         .then(post => {
-            res.status(200).json({post})
+            if(!id){ 
+                res.status(404).json({message: "The post with the specified ID does not exist."})
+        }else{ res.status(200).json({post})}
         })
         .catch(err => {
-            res.status(404).json({success: false, err})
+            res.status(500).json({error: "The post information could not be retrieved."})
         })
 });
 
-router.get('/:id/comments', async (req,res)=>{//Get all comments under post id 
+router.get('/:id/comments', (req,res)=>{//Get all comments under post id 
     const {id} = req.params
-    try{
-        const comments = await Posts.findPostComments(id);
 
-        comments.length > 0 ? res.status(200).json({comments}) : res.status(404).json({message: 'No comments for this post'});
-    }catch (err) {
+    Posts.findPostComments(id)
+    .then(comments => {
+        comments ? res.status(200).json({comments}) : res.status(404).json({message: 'No comments for this post'});
+    }).catch (err => {
             console.log(err)
             res.status(500).json({message: 'Error retreiving comment for this post'})
-        };
+        });
 });
 
-router.get('/:id/comments/:id', async (req,res)=>{//Get comments under post id by comment id
+router.get('/:id/comments/:id',(req,res)=>{//Get comments under post id by comment id
     const {id} = req.params
-    try{
-        const comments = await Posts.findCommentById(id);
-
-        comments ? res.status(200).json({comments}) : res.status(404).json({success:false, message: 'Invalid post ID'});
-    }catch (err) {
+    Posts.findCommentById(id)
+    .then(commentId =>{
+        commentId ? res.status(200).json({commentId}) : res.status(404).json({success:false, message: 'Invalid post ID'});
+    }).catch (err => {
             console.log(err)
             res.status(500).json({message: 'Error retreiving comment'})
-        };
+        });
 });
 
 
 
 router.post('/', (req,res)=>{//Create new post 
-    const body = req.body;
+    const posts = req.body;
     console.log(req.body)
-    if(!body.title || !body.contents){ 
+    if(!posts.title || !posts.contents){ 
         res.status(400).json({errorMessage: "Please provide title and contents for the post."})
     } else {
-        Posts.insert(req.body)
-            .then(postNew => {res.status(200).json({sucess:true, postNew});
+        Posts.insert(posts)
+            .then(postNew => {res.status(201).json({sucess:true, postNew});
             })
             .catch(err => {
                 console.log(err)
@@ -66,30 +68,35 @@ router.post('/', (req,res)=>{//Create new post
     }
 })
 
-router.post('/:id/comments', async (req,res)=>{// Create new comment under post id
+router.post('/:id/comments', (req,res)=>{// Create new comment under post id
     const comments = {...req.body, post_id: req.params.id};
-
-    try{
-        const comment = await Posts.insertComment(comments);
-        res.status(201).json(comment);
-    }catch (err){
+    console.log(comments)
+    Posts.insertComment(comments)
+    .then(comment => {
+        !req.params.id ? res.status(404).json({message: "The post with the specified ID does not exist."}) : res.status(201).json(comment);
+    }).catch (err => {
         console.log(err);
         res.status(500).json({err})
-    }
+    })
 })
 
-router.put('/:id', (req,res)=>{
-    const body = req.body;
-    const {id} = req.params;
-
-    Posts.update(id, body)
+router.put('/:id', (req, res) => {
+    const changes = req.body;
+    const {id} = req.params
+    Posts.update(id, changes)
         .then(post => {
-            res.status(201).json({sucess:true, post})
+            if (post) {
+                res.status(200).json(post);
+            } else {
+                res.status(404).json({  message: "The post with the specified ID does not exist." });
+            }
         })
         .catch(err => {
-            console.log(err)
-            res.status(500).json({message: 'Error updating post'})
-        })
+            console.log(err);
+            res.status(500).json({
+                error: "The post information could not be modified." ,
+            });
+        });
 });
 
 router.delete('/:id', (req,res)=>{
